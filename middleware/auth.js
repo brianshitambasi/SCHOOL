@@ -30,7 +30,7 @@ const auth=async(req,res,next)=>{
 const authorizeRoles=(...allowedRoles)=>{
     return (req,res,next)=>{
         if (!req.user || !allowedRoles.includes(req.user.roles)){
-            return res.status(403).json({error:'You are not authorized to access this route'})
+            return res.status(403).json({error:'You are not authorized to access this route...Acces denied insufficient permissions... '})
         }
         next()
     }

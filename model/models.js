@@ -11,7 +11,7 @@ const userSchema=new mongoose.Schema({
         isActive:{type:Boolean,default:true},
         role:{type:String,enum:['admin','teacher','parent'],required:true},
         teacher:{type:mongoose.Schema.Types.ObjectId,ref:'Teacher',default:null},
-        parent:{type:mongoose.Schema.Types.ObjectId,ref:'parent',default:null},
+        parent:{type:mongoose.Schema.Types.ObjectId,ref:'Parent',default:null},
 },{timestamps:true})
 // teachers schema 
 const teacherSchema = new Schema(
@@ -38,7 +38,7 @@ const classroomSchema=new Schema({
         gradeLevel:{type:String},
         classYear:{type:Number},
         teacher:{type:mongoose.Schema.Types.ObjectId,ref:"Teacher",default:null},
-        students:{type:mongoose.Schema.Types.ObjectId,ref:"student",default:null}
+        students:{type:mongoose.Schema.Types.ObjectId,ref:"Student",default:null}
 },{timestamps:true})
 
 // student Schema
@@ -49,7 +49,7 @@ const studentSchema=new Schema({
         photo:{types:String},
         addmissionNumber:{type:String,Unique:true},
         classroom:{type:mongoose.Schema.Types.ObjectId,ref:"Classroom"},
-        parent:{type:mongoose.Schema.Types.ObjectId,ref:"parent"}
+        parent:{type:mongoose.Schema.Types.ObjectId,ref:"Parent"}
 },{timestamps:true})
 
 // assignmnts

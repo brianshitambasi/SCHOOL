@@ -15,6 +15,10 @@ app.use("/uploads",express.static("uploads"))
 const UserAuth=require('./routes/loginRoutes')
 app.use('/user/Auth',UserAuth)
 
+// classroom routes
+const ClassroomRoutes=require('./routes/classroomRoute')
+app.use('/classroom',ClassroomRoutes)
+
 
 
 // connection to the database
@@ -24,7 +28,7 @@ mongoose.connect(process.env.MONGO_URI)
 
 
 
-const PORT=3001
+const PORT=3003
 app.listen(PORT,()=>{
     console.log(`server running on port ${PORT}`)
 })
