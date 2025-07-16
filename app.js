@@ -19,6 +19,10 @@ app.use('/user/Auth',UserAuth)
 const ClassroomRoutes=require('./routes/classroomRoute')
 app.use('/classroom',ClassroomRoutes)
 
+// teacher routes
+const TeacherRoutes=require("./routes/teacherRoutes")
+app.use('/teacher',TeacherRoutes)
+
 
 
 // connection to the database
@@ -28,7 +32,7 @@ mongoose.connect(process.env.MONGO_URI)
 
 
 
-const PORT=3003
+const PORT=3005
 app.listen(PORT,()=>{
     console.log(`server running on port ${PORT}`)
 })
