@@ -32,7 +32,7 @@ mongoose.connect(process.env.MONGO_URI)
 
 
 
-const PORT=3005
+const PORT=3004
 app.listen(PORT,()=>{
     console.log(`server running on port ${PORT}`)
 })

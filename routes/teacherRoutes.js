@@ -1,10 +1,15 @@
-const express=require('express')
-const router=express.Router()
-const teachersController=require("../controller/teachersController")
+const express = require("express");
+const router = express.Router();
+const teachersController = require("../controller/teachersController");
+// authozization
+const { auth, authorizeRoles } = require("../middleware/auth");
 
-router.post('/',teachersController.addTeacher)
-router.get("/", teachersController.getAllTeachers);
-router.get('/:id',teachersController.getTeacherById)
-router.put('/:id',teachersController.updateTeacher)
+router.post("/",  teachersController.addTeacher);
 
-module.exports=router
+router.get("/",  teachersController.getAllTeachers);
+router.get("/:id", teachersController.getTeacherById);
+router.put("/:id",auth, authorizeRoles('admin','teacher'), teachersController.updateTeacher);
+router.delete("/id",teachersController.deleteTeacher)
+
+
+module.exports = router;
