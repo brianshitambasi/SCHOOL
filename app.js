@@ -19,6 +19,10 @@ app.use('/user/Auth',UserAuth)
 const ClassroomRoutes=require('./routes/classroomRoute')
 app.use('/classroom',ClassroomRoutes)
 
+// parents routes
+const ParentRoutes=require('./routes/parentRoutes')
+app.use('/parent',ParentRoutes)
+
 // teacher routes
 const TeacherRoutes=require("./routes/teacherRoutes")
 app.use('/teacher',TeacherRoutes)
