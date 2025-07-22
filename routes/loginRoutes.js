@@ -6,4 +6,7 @@ router.post('/register',loginController.registerAdmin)
 router.post('/',loginController.login)
 
 
+
+
+
 module.exports=router

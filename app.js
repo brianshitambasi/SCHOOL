@@ -27,6 +27,14 @@ app.use('/parent',ParentRoutes)
 const TeacherRoutes=require("./routes/teacherRoutes")
 app.use('/teacher',TeacherRoutes)
 
+// students routes
+const StudentRoutes = require("./routes/studentRoute");
+app.use("/student", StudentRoutes);
+
+
+
+
+
 
 
 // connection to the database
