@@ -1,50 +1,36 @@
 // Entry file
-const express=require('express')
-const mongoose=require('mongoose')
-const cors =require("cors")
+const express = require('express')
+const mongoose = require('mongoose')
+const cors = require("cors")
 require("dotenv").config()
 
-const app=express()
+const app = express()
 app.use(express.json())
 app.use(cors())
-// static file accessibility
-app.use("/uploads",express.static("uploads"))
+app.use("/uploads", express.static("uploads"))
 
+// Routes
+const UserAuth = require('./routes/loginRoutes')
+app.use('/user/Auth', UserAuth)
 
-//login routes
-const UserAuth=require('./routes/loginRoutes')
-app.use('/user/Auth',UserAuth)
+const ClassroomRoutes = require('./routes/classroomRoute')
+app.use('/classroom', ClassroomRoutes)
 
-// classroom routes
-const ClassroomRoutes=require('./routes/classroomRoute')
-app.use('/classroom',ClassroomRoutes)
+const ParentRoutes = require('./routes/parentRoutes')
+app.use('/parent', ParentRoutes)
 
-// parents routes
-const ParentRoutes=require('./routes/parentRoutes')
-app.use('/parent',ParentRoutes)
+const TeacherRoutes = require("./routes/teacherRoutes")
+app.use('/teacher', TeacherRoutes)
 
-// teacher routes
-const TeacherRoutes=require("./routes/teacherRoutes")
-app.use('/teacher',TeacherRoutes)
+const StudentRoutes = require("./routes/studentRoute")
+app.use("/student", StudentRoutes)
 
-// students routes
-const StudentRoutes = require("./routes/studentRoute");
-app.use("/student", StudentRoutes);
-
-
-
-
-
-
-
-// connection to the database
+// Database Connection - Fixed (removed deprecated options)
 mongoose.connect(process.env.MONGO_URI)
-.then(()=>console.log("mongodb connected"))
-.catch(err=>console.log("mongodb connected error",err))
+  .then(() => console.log("✅ MongoDB connected successfully"))
+  .catch(err => console.error("❌ MongoDB connection error:", err.message))
 
-
-
-const PORT=3004
-app.listen(PORT,()=>{
-    console.log(`server running on port ${PORT}`)
+const PORT = process.env.PORT || 3004
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`)
 })

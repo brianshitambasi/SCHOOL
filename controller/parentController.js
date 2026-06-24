@@ -35,7 +35,7 @@ exports.addparent = async (req, res) => {
   }
 };
 
-// Get all parents
+// Get all parents - FIXED
 exports.getallparents = async (req, res) => {
   try {
     const parents = await Parent.find();
@@ -56,7 +56,7 @@ exports.updateParent = async (req, res) => {
     if (!updatedParent) {
       return res.status(404).json({ message: "Parent not found" });
     }
-    res.status(201).json(updatedParent);
+    res.status(200).json(updatedParent);
   } catch (error) {
     return res.status(400).json({ message: error.message });
   }
@@ -69,7 +69,6 @@ exports.deleteParent = async (req, res) => {
     if (!deletedParent) {
       return res.status(404).json({ message: "Parent not found" });
     }
-    // Delete also the associated user account
     await User.findOneAndDelete({ parent: req.params.id });
     res.status(200).json({ message: "Parent deleted successfully" });
   } catch (error) {
