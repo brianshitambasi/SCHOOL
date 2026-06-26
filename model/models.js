@@ -68,3 +68,32 @@ const Student = mongoose.model("Student", studentSchema);
 const Assignment = mongoose.model("Assignment", AssignmentSchema);
 
 module.exports = { User, Teacher, Classroom, Parent, Student, Assignment };
+
+// Notification Schema
+const notificationSchema = new Schema({
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  type: { 
+    type: String, 
+    enum: ['info', 'success', 'warning', 'error', 'assignment', 'attendance', 'fee', 'exam'],
+    default: 'info'
+  },
+  recipients: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    role: { type: String, enum: ['admin', 'teacher', 'parent', 'all'] },
+    read: { type: Boolean, default: false },
+    readAt: { type: Date }
+  }],
+  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  link: { type: String },
+  priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+  expiresAt: { type: Date },
+  isGlobal: { type: Boolean, default: false },
+  isRead: { type: Boolean, default: false }
+}, { timestamps: true })
+
+// prepare exports - Add Notification
+const Notification = mongoose.model("Notification", notificationSchema);
+
+// Update module exports
+module.exports = { User, Teacher, Classroom, Parent, Student, Assignment, Notification };

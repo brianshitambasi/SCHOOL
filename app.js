@@ -25,9 +25,12 @@ app.use('/teacher', TeacherRoutes)
 const StudentRoutes = require("./routes/studentRoute")
 app.use("/student", StudentRoutes)
 
-// ✅ ADD THIS - Assignment routes
 const AssignmentRoutes = require("./routes/assignmentRoutes")
 app.use("/assignment", AssignmentRoutes)
+
+// ✅ Notification routes
+const NotificationRoutes = require("./routes/notificationRoutes")
+app.use("/notification", NotificationRoutes)
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
