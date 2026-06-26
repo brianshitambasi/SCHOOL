@@ -1,69 +1,77 @@
 const { User } = require("../model/models");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-//register logic
+
+// Register logic
 exports.registerAdmin = async (req, res) => {
   const { name, email, password, secretkey } = req.body;
+  
   // verify admin secret key
   if (secretkey !== process.env.secretkey) {
-    return res.status(403).json({ message: "unauthorized account creation" });
+    return res.status(403).json({ message: "Unauthorized account creation" });
   }
+  
   // check if the user exists
   const userexist = await User.findOne({ email });
   if (userexist) {
-    res.json({ message: "Email has already been taken" });
+    return res.status(400).json({ message: "Email has already been taken" });
   }
+  
   // hashing the password
   const hashedPassword = await bcrypt.hash(password, 10);
+  
   // create a new user
   const user = new User({
     name,
     email,
     password: hashedPassword,
-    role:"admin",
+    role: "admin",
     isActive: true,
     teacher: null,
     parent: null,
   });
-  //new user creation
-  const newUser = await user.save();
-  res.json({ message: "account created", user });
+  
+  // new user creation
+  await user.save();
+  res.json({ message: "Account created", user });
 }
-//login logic
+
+// Login logic
 exports.login = async (req, res) => {
   const { email, password } = req.body;
-//   console.log(email, password);
-//   res.json({ message: "login successful" });
+  
   // check if the user exists by email
   const user = await User.findOne({ email });
   if (!user) {
-    return res.status(404).json({ message: "user not found" });
+    return res.status(404).json({ message: "User not found" });
   }
+  
   // check if the user is active
   if (!user.isActive) {
-        return res.status(403).json({ message: "account is inactive" });
-    }
-    // check if the password is correct
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-        return res.status(401).json({ message: "invalid password" });
-    }
-    // generate token
-    const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1h",
-      }
-    );
-        res.json({ message: "login successful",
-            token,
-            user:{
-                id:user._id,
-                name:user.name,
-                email:user.email,
-                role:user.role
-            }});
-}
-
+    return res.status(403).json({ message: "Account is inactive" });
+  }
   
+  // check if the password is correct
+  const isValidPassword = await bcrypt.compare(password, user.password);
+  if (!isValidPassword) {
+    return res.status(401).json({ message: "Invalid password" });
+  }
+  
+  // generate token
+  const token = jwt.sign(
+    { userId: user._id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+  
+  res.json({
+    message: "Login successful",
+    token,
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role
+    }
+  });
+}

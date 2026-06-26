@@ -25,12 +25,16 @@ app.use('/teacher', TeacherRoutes)
 const StudentRoutes = require("./routes/studentRoute")
 app.use("/student", StudentRoutes)
 
-// Database Connection - Fixed (removed deprecated options)
+// âœ… ADD THIS - Assignment routes
+const AssignmentRoutes = require("./routes/assignmentRoutes")
+app.use("/assignment", AssignmentRoutes)
+
+// Database Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("âœ… MongoDB connected successfully"))
   .catch(err => console.error("âŒ MongoDB connection error:", err.message))
 
 const PORT = process.env.PORT || 3004
 app.listen(PORT, () => {
-  console.log(`ðŸš€ Server running on port ${PORT}`)
+  console.log(`íº€ Server running on port ${PORT}`)
 })

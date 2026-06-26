@@ -30,13 +30,13 @@ const parentSchema = new Schema({
   address: { type: String },
 }, { timestamps: true })
 
-// THE CLASSROOM - FIXED: students should be an ARRAY
+// THE CLASSROOM - students should be an ARRAY
 const classroomSchema = new Schema({
   name: { type: String, required: true },
   gradeLevel: { type: String },
   classYear: { type: Number },
   teacher: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher", default: null },
-  students: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student" }] // ✅ FIXED
+  students: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student" }]
 }, { timestamps: true })
 
 // student Schema - FIXED typos
@@ -44,13 +44,13 @@ const studentSchema = new Schema({
   name: { type: String, required: true },
   dateOfBirth: { type: Date, required: true },
   gender: { type: String },
-  photo: { type: String }, // ✅ FIXED: was 'types:String'
-  admissionNumber: { type: String, unique: true }, // ✅ FIXED: was 'addmissionNumber' and 'Unique'
+  photo: { type: String },
+  admissionNumber: { type: String, unique: true },
   classroom: { type: mongoose.Schema.Types.ObjectId, ref: "Classroom" },
   parent: { type: mongoose.Schema.Types.ObjectId, ref: "Parent" }
 }, { timestamps: true })
 
-// assignments
+// ✅ FIXED: AssignmentSchema is properly defined
 const AssignmentSchema = new Schema({
   title: { type: String, required: true },
   description: { type: String },
