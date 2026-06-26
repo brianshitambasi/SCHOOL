@@ -97,3 +97,26 @@ const Notification = mongoose.model("Notification", notificationSchema);
 
 // Update module exports
 module.exports = { User, Teacher, Classroom, Parent, Student, Assignment, Notification };
+
+// Attendance Schema
+const attendanceSchema = new Schema({
+  student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
+  classroom: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom', required: true },
+  date: { type: Date, required: true, default: Date.now },
+  status: { 
+    type: String, 
+    enum: ['present', 'absent', 'late', 'excused'],
+    required: true,
+    default: 'present'
+  },
+  markedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
+  note: { type: String },
+  semester: { type: String },
+  term: { type: Number, enum: [1, 2, 3] }
+}, { timestamps: true })
+
+// prepare exports - Add Attendance
+const Attendance = mongoose.model("Attendance", attendanceSchema);
+
+// Update module exports
+module.exports = { User, Teacher, Classroom, Parent, Student, Assignment, Notification, Attendance };

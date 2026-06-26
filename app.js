@@ -28,9 +28,12 @@ app.use("/student", StudentRoutes)
 const AssignmentRoutes = require("./routes/assignmentRoutes")
 app.use("/assignment", AssignmentRoutes)
 
-// ✅ Notification routes
 const NotificationRoutes = require("./routes/notificationRoutes")
 app.use("/notification", NotificationRoutes)
+
+// ✅ ADD THIS - Attendance routes
+const AttendanceRoutes = require("./routes/attendanceRoutes")
+app.use("/attendance", AttendanceRoutes)
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
