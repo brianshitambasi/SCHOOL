@@ -10,7 +10,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Configure Cloudinary Storage for multer
+// Configure Cloudinary Storage
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
@@ -22,14 +22,12 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 exports.uploadStudentPhoto = upload.single('photo');
 
-// ============================================
-// 1. ADD STUDENT WITH CLOUDINARY PHOTO
-// ============================================
+// Add Student
 exports.addStudent = async (req, res) => {
   try {
     const { 
@@ -41,23 +39,20 @@ exports.addStudent = async (req, res) => {
       classromId 
     } = req.body;
 
-    // Check if parent exists by national ID
     const parentExists = await Parent.findOne({ nationalId: parentNationalId });
     if (!parentExists) {
       return res.status(404).json({ 
-        message: "Parent with provided national ID does not exist. Please add parent first." 
+        message: "Parent with provided national ID does not exist." 
       });
     }
 
-    // Check if student exists by admission number
     const studentExists = await Student.findOne({ admissionNumber });
     if (studentExists) {
       return res.status(400).json({ 
-        message: "Admission number has already been assigned to someone else" 
+        message: "Admission number already assigned" 
       });
     }
 
-    // Check if classroom exists
     const classExist = await Classroom.findById(classromId);
     if (!classExist) {
       return res.status(404).json({ 
@@ -65,13 +60,11 @@ exports.addStudent = async (req, res) => {
       });
     }
 
-    // Get photo URL from Cloudinary (if uploaded)
     let photo = null;
     if (req.file) {
       photo = req.file.path; // Cloudinary URL
     }
 
-    // Create student document
     const newStudent = new Student({
       name,
       dateOfBirth,
@@ -84,7 +77,6 @@ exports.addStudent = async (req, res) => {
 
     const savedStudent = await newStudent.save();
 
-    // Add student to classroom
     await Classroom.findByIdAndUpdate(
       classExist._id,
       { $addToSet: { students: savedStudent._id } }
@@ -95,13 +87,12 @@ exports.addStudent = async (req, res) => {
       student: savedStudent
     });
   } catch (error) {
+    console.error('Add student error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// ============================================
-// 2. GET ALL STUDENTS
-// ============================================
+// Get all students
 exports.getAllStudents = async (req, res) => {
   try {
     const students = await Student.find()
@@ -110,13 +101,12 @@ exports.getAllStudents = async (req, res) => {
     
     res.status(200).json(students);
   } catch (error) {
+    console.error('Get students error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// ============================================
-// 3. GET STUDENT BY ID
-// ============================================
+// Get student by ID
 exports.getStudentById = async (req, res) => {
   try {
     const student = await Student.findById(req.params.id)
@@ -129,19 +119,17 @@ exports.getStudentById = async (req, res) => {
     
     res.status(200).json(student);
   } catch (error) {
+    console.error('Get student error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// ============================================
-// 4. UPDATE STUDENT
-// ============================================
+// Update student
 exports.updateStudent = async (req, res) => {
   try {
     const studentId = req.params.id;
     const updateData = req.body;
 
-    // If updating classroom, check if it exists
     if (updateData.classroom) {
       const classExist = await Classroom.findById(updateData.classroom);
       if (!classExist) {
@@ -149,7 +137,6 @@ exports.updateStudent = async (req, res) => {
       }
     }
 
-    // If updating parent, check if it exists
     if (updateData.parent) {
       const parentExists = await Parent.findById(updateData.parent);
       if (!parentExists) {
@@ -157,9 +144,8 @@ exports.updateStudent = async (req, res) => {
       }
     }
 
-    // If new photo uploaded, update photo URL
     if (req.file) {
-      updateData.photo = req.file.path; // Cloudinary URL
+      updateData.photo = req.file.path;
     }
 
     const updatedStudent = await Student.findByIdAndUpdate(
@@ -178,13 +164,12 @@ exports.updateStudent = async (req, res) => {
       student: updatedStudent
     });
   } catch (error) {
+    console.error('Update student error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// ============================================
-// 5. DELETE STUDENT
-// ============================================
+// Delete student
 exports.deleteStudent = async (req, res) => {
   try {
     const studentId = req.params.id;
@@ -195,20 +180,16 @@ exports.deleteStudent = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    // If student had a photo in Cloudinary, delete it
-    if (deletedStudent.photo) {
+    // Delete from Cloudinary if photo exists
+    if (deletedStudent.photo && deletedStudent.photo.includes('cloudinary')) {
       try {
-        // Extract public_id from Cloudinary URL
-        const urlParts = deletedStudent.photo.split('/');
-        const publicId = urlParts[urlParts.length - 1].split('.')[0];
+        const publicId = deletedStudent.photo.split('/').pop().split('.')[0];
         await cloudinary.uploader.destroy(`students/${publicId}`);
       } catch (cloudinaryError) {
         console.error('Error deleting from Cloudinary:', cloudinaryError);
-        // Continue with student deletion even if Cloudinary fails
       }
     }
 
-    // Remove student from classroom
     await Classroom.updateOne(
       { students: studentId },
       { $pull: { students: studentId } }
@@ -219,6 +200,7 @@ exports.deleteStudent = async (req, res) => {
       student: deletedStudent
     });
   } catch (error) {
+    console.error('Delete student error:', error);
     res.status(500).json({ message: error.message });
   }
 };

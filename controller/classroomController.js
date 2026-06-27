@@ -4,17 +4,16 @@ const { Classroom, Teacher, Student } = require('../model/models');
 exports.addClassroom = async (req, res) => {
   try {
     const newClassroom = req.body;
-    console.log(newClassroom);
-
     const savedClassroom = new Classroom(newClassroom);
     await savedClassroom.save();
     res.status(201).json(savedClassroom);
   } catch (error) {
+    console.error('Add classroom error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get all classrooms - FIXED
+// Get all classrooms
 exports.getClassroom = async (req, res) => {
   try {
     const classrooms = await Classroom.find()
@@ -22,6 +21,7 @@ exports.getClassroom = async (req, res) => {
       .populate('students', 'name admissionNumber');
     res.status(200).json(classrooms);
   } catch (error) {
+    console.error('Get classrooms error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -38,6 +38,7 @@ exports.getClassroomById = async (req, res) => {
     }
     res.status(200).json(classroom);
   } catch (error) {
+    console.error('Get classroom error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -55,6 +56,7 @@ exports.updateClassroom = async (req, res) => {
     }
     res.status(200).json(updatedClassroom);
   } catch (error) {
+    console.error('Update classroom error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -66,6 +68,7 @@ exports.deleteClassroom = async (req, res) => {
     await Classroom.findByIdAndDelete(classroomId);
     res.status(200).json({ message: 'Classroom deleted' });
   } catch (error) {
+    console.error('Delete classroom error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -90,6 +93,7 @@ exports.addStudentToClassroom = async (req, res) => {
     await classroom.save();
     res.status(200).json(classroom);
   } catch (error) {
+    console.error('Add student to classroom error:', error);
     res.status(500).json({ message: error.message });
   }
 };
