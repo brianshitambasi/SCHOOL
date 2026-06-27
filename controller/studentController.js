@@ -1,32 +1,37 @@
 const { Student, Classroom, Parent } = require("../model/models");
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// Ensure uploads directory exists
-const uploadDir = 'uploads/';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
-// Configure multer for file upload
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    cb(null, Date.now() + ext);
+// Configure Cloudinary Storage for multer
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'students',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [{ width: 500, height: 500, crop: 'limit' }]
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
 exports.uploadStudentPhoto = upload.single('photo');
 
-// Add student
+// ============================================
+// 1. ADD STUDENT WITH CLOUDINARY PHOTO
+// ============================================
 exports.addStudent = async (req, res) => {
   try {
-    // Destructuring
     const { 
       name, 
       dateOfBirth, 
@@ -36,15 +41,15 @@ exports.addStudent = async (req, res) => {
       classromId 
     } = req.body;
 
-    // Check if the parent exists by national id
+    // Check if parent exists by national ID
     const parentExists = await Parent.findOne({ nationalId: parentNationalId });
     if (!parentExists) {
       return res.status(404).json({ 
-        message: "Parent with provided national ID does not exist" 
+        message: "Parent with provided national ID does not exist. Please add parent first." 
       });
     }
 
-    // Check if the student exists
+    // Check if student exists by admission number
     const studentExists = await Student.findOne({ admissionNumber });
     if (studentExists) {
       return res.status(400).json({ 
@@ -52,7 +57,7 @@ exports.addStudent = async (req, res) => {
       });
     }
 
-    // Check if the class exists
+    // Check if classroom exists
     const classExist = await Classroom.findById(classromId);
     if (!classExist) {
       return res.status(404).json({ 
@@ -60,13 +65,10 @@ exports.addStudent = async (req, res) => {
       });
     }
 
-    // Prepare upload file
+    // Get photo URL from Cloudinary (if uploaded)
     let photo = null;
     if (req.file) {
-      const ext = path.extname(req.file.originalname);
-      const newFileName = Date.now() + ext;
-      const newPath = path.join(uploadDir, newFileName);
-      photo = newPath.replace(/\\/g, "/");
+      photo = req.file.path; // Cloudinary URL
     }
 
     // Create student document
@@ -82,31 +84,39 @@ exports.addStudent = async (req, res) => {
 
     const savedStudent = await newStudent.save();
 
-    // Adding student to classroom using addToSet to prevent duplicates
+    // Add student to classroom
     await Classroom.findByIdAndUpdate(
       classExist._id,
       { $addToSet: { students: savedStudent._id } }
     );
 
-    res.status(201).json(savedStudent);
+    res.status(201).json({
+      message: "Student added successfully",
+      student: savedStudent
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get all students
+// ============================================
+// 2. GET ALL STUDENTS
+// ============================================
 exports.getAllStudents = async (req, res) => {
   try {
     const students = await Student.find()
       .populate('classroom', 'name gradeLevel classYear')
       .populate('parent', 'name email phone nationalId');
+    
     res.status(200).json(students);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get student by ID
+// ============================================
+// 3. GET STUDENT BY ID
+// ============================================
 exports.getStudentById = async (req, res) => {
   try {
     const student = await Student.findById(req.params.id)
@@ -123,12 +133,38 @@ exports.getStudentById = async (req, res) => {
   }
 };
 
-// Update student
+// ============================================
+// 4. UPDATE STUDENT
+// ============================================
 exports.updateStudent = async (req, res) => {
   try {
+    const studentId = req.params.id;
+    const updateData = req.body;
+
+    // If updating classroom, check if it exists
+    if (updateData.classroom) {
+      const classExist = await Classroom.findById(updateData.classroom);
+      if (!classExist) {
+        return res.status(404).json({ message: "Classroom not found" });
+      }
+    }
+
+    // If updating parent, check if it exists
+    if (updateData.parent) {
+      const parentExists = await Parent.findById(updateData.parent);
+      if (!parentExists) {
+        return res.status(404).json({ message: "Parent not found" });
+      }
+    }
+
+    // If new photo uploaded, update photo URL
+    if (req.file) {
+      updateData.photo = req.file.path; // Cloudinary URL
+    }
+
     const updatedStudent = await Student.findByIdAndUpdate(
-      req.params.id,
-      req.body,
+      studentId,
+      updateData,
       { new: true }
     ).populate('classroom', 'name gradeLevel classYear')
      .populate('parent', 'name email phone nationalId');
@@ -137,28 +173,51 @@ exports.updateStudent = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    res.status(200).json(updatedStudent);
+    res.status(200).json({
+      message: "Student updated successfully",
+      student: updatedStudent
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// Delete student
+// ============================================
+// 5. DELETE STUDENT
+// ============================================
 exports.deleteStudent = async (req, res) => {
   try {
-    const deletedStudent = await Student.findByIdAndDelete(req.params.id);
+    const studentId = req.params.id;
+
+    const deletedStudent = await Student.findByIdAndDelete(studentId);
     
     if (!deletedStudent) {
       return res.status(404).json({ message: "Student not found" });
     }
 
+    // If student had a photo in Cloudinary, delete it
+    if (deletedStudent.photo) {
+      try {
+        // Extract public_id from Cloudinary URL
+        const urlParts = deletedStudent.photo.split('/');
+        const publicId = urlParts[urlParts.length - 1].split('.')[0];
+        await cloudinary.uploader.destroy(`students/${publicId}`);
+      } catch (cloudinaryError) {
+        console.error('Error deleting from Cloudinary:', cloudinaryError);
+        // Continue with student deletion even if Cloudinary fails
+      }
+    }
+
     // Remove student from classroom
     await Classroom.updateOne(
-      { students: req.params.id },
-      { $pull: { students: req.params.id } }
+      { students: studentId },
+      { $pull: { students: studentId } }
     );
 
-    res.status(200).json({ message: "Student deleted successfully" });
+    res.status(200).json({ 
+      message: "Student deleted successfully",
+      student: deletedStudent
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
