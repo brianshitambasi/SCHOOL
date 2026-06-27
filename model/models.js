@@ -120,3 +120,30 @@ const Attendance = mongoose.model("Attendance", attendanceSchema);
 
 // Update module exports
 module.exports = { User, Teacher, Classroom, Parent, Student, Assignment, Notification, Attendance };
+
+// Message Schema
+const messageSchema = new Schema({
+  subject: { type: String, required: true },
+  message: { type: String, required: true },
+  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  senderRole: { type: String, enum: ['admin', 'teacher', 'parent'], required: true },
+  senderName: { type: String, required: true },
+  recipientType: { 
+    type: String, 
+    enum: ['all', 'teachers', 'parents', 'students', 'admin', 'specific'],
+    default: 'all'
+  },
+  recipients: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  readBy: [{ 
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    readAt: { type: Date, default: Date.now }
+  }],
+  priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
+  isRead: { type: Boolean, default: false }
+}, { timestamps: true })
+
+// prepare exports - Add Message
+const Message = mongoose.model("Message", messageSchema);
+
+// Update module exports
+module.exports = { User, Teacher, Classroom, Parent, Student, Assignment, Notification, Attendance, Message };

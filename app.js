@@ -44,3 +44,7 @@ const PORT = process.env.PORT || 3004
 app.listen(PORT, () => {
   console.log(`íº€ Server running on port ${PORT}`)
 })
+
+// Message routes
+const MessageRoutes = require("./routes/messageRoutes");
+app.use("/message", MessageRoutes);
