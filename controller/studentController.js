@@ -27,7 +27,9 @@ const upload = multer({
 
 exports.uploadStudentPhoto = upload.single('photo');
 
-// Add Student
+// ============================================
+// 1. ADD STUDENT
+// ============================================
 exports.addStudent = async (req, res) => {
   try {
     const { 
@@ -39,6 +41,14 @@ exports.addStudent = async (req, res) => {
       classromId 
     } = req.body;
 
+    // Validate required fields
+    if (!name || !dateOfBirth || !admissionNumber || !parentNationalId || !classromId) {
+      return res.status(400).json({ 
+        message: "All fields are required: name, dateOfBirth, admissionNumber, parentNationalId, classromId" 
+      });
+    }
+
+    // Check if parent exists
     const parentExists = await Parent.findOne({ nationalId: parentNationalId });
     if (!parentExists) {
       return res.status(404).json({ 
@@ -46,6 +56,7 @@ exports.addStudent = async (req, res) => {
       });
     }
 
+    // Check if student exists
     const studentExists = await Student.findOne({ admissionNumber });
     if (studentExists) {
       return res.status(400).json({ 
@@ -53,6 +64,7 @@ exports.addStudent = async (req, res) => {
       });
     }
 
+    // Check if classroom exists
     const classExist = await Classroom.findById(classromId);
     if (!classExist) {
       return res.status(404).json({ 
@@ -60,11 +72,13 @@ exports.addStudent = async (req, res) => {
       });
     }
 
+    // Get photo URL from Cloudinary (if uploaded)
     let photo = null;
     if (req.file) {
       photo = req.file.path; // Cloudinary URL
     }
 
+    // Create student document
     const newStudent = new Student({
       name,
       dateOfBirth,
@@ -77,6 +91,7 @@ exports.addStudent = async (req, res) => {
 
     const savedStudent = await newStudent.save();
 
+    // Add student to classroom
     await Classroom.findByIdAndUpdate(
       classExist._id,
       { $addToSet: { students: savedStudent._id } }
@@ -92,7 +107,9 @@ exports.addStudent = async (req, res) => {
   }
 };
 
-// Get all students
+// ============================================
+// 2. GET ALL STUDENTS
+// ============================================
 exports.getAllStudents = async (req, res) => {
   try {
     const students = await Student.find()
@@ -106,10 +123,18 @@ exports.getAllStudents = async (req, res) => {
   }
 };
 
-// Get student by ID
+// ============================================
+// 3. GET STUDENT BY ID
+// ============================================
 exports.getStudentById = async (req, res) => {
   try {
-    const student = await Student.findById(req.params.id)
+    const studentId = req.params.id;
+    
+    if (!studentId) {
+      return res.status(400).json({ message: "Student ID is required" });
+    }
+
+    const student = await Student.findById(studentId)
       .populate('classroom', 'name gradeLevel classYear')
       .populate('parent', 'name email phone nationalId');
     
@@ -124,12 +149,26 @@ exports.getStudentById = async (req, res) => {
   }
 };
 
-// Update student
+// ============================================
+// 4. UPDATE STUDENT
+// ============================================
 exports.updateStudent = async (req, res) => {
   try {
     const studentId = req.params.id;
-    const updateData = req.body;
+    
+    if (!studentId) {
+      return res.status(400).json({ message: "Student ID is required" });
+    }
 
+    // Check if student exists
+    const existingStudent = await Student.findById(studentId);
+    if (!existingStudent) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const updateData = { ...req.body };
+
+    // If updating classroom, check if it exists
     if (updateData.classroom) {
       const classExist = await Classroom.findById(updateData.classroom);
       if (!classExist) {
@@ -137,6 +176,7 @@ exports.updateStudent = async (req, res) => {
       }
     }
 
+    // If updating parent, check if it exists
     if (updateData.parent) {
       const parentExists = await Parent.findById(updateData.parent);
       if (!parentExists) {
@@ -144,8 +184,9 @@ exports.updateStudent = async (req, res) => {
       }
     }
 
+    // Handle photo upload
     if (req.file) {
-      updateData.photo = req.file.path;
+      updateData.photo = req.file.path; // Cloudinary URL
     }
 
     const updatedStudent = await Student.findByIdAndUpdate(
@@ -154,10 +195,6 @@ exports.updateStudent = async (req, res) => {
       { new: true }
     ).populate('classroom', 'name gradeLevel classYear')
      .populate('parent', 'name email phone nationalId');
-
-    if (!updatedStudent) {
-      return res.status(404).json({ message: "Student not found" });
-    }
 
     res.status(200).json({
       message: "Student updated successfully",
@@ -169,10 +206,16 @@ exports.updateStudent = async (req, res) => {
   }
 };
 
-// Delete student
+// ============================================
+// 5. DELETE STUDENT
+// ============================================
 exports.deleteStudent = async (req, res) => {
   try {
     const studentId = req.params.id;
+
+    if (!studentId) {
+      return res.status(400).json({ message: "Student ID is required" });
+    }
 
     const deletedStudent = await Student.findByIdAndDelete(studentId);
     
@@ -190,6 +233,7 @@ exports.deleteStudent = async (req, res) => {
       }
     }
 
+    // Remove student from classroom
     await Classroom.updateOne(
       { students: studentId },
       { $pull: { students: studentId } }

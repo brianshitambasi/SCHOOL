@@ -14,7 +14,13 @@ router.post(
 
 router.get("/", auth, studentController.getAllStudents);
 router.get("/:id", auth, studentController.getStudentById);
-router.put("/:id", auth, authorizeRoles("admin"), studentController.updateStudent);
+router.put(
+  "/:id", 
+  auth, 
+  authorizeRoles("admin"),
+  studentController.uploadStudentPhoto,
+  studentController.updateStudent
+);
 router.delete("/:id", auth, authorizeRoles("admin"), studentController.deleteStudent);
 
 module.exports = router;
