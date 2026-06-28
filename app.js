@@ -31,9 +31,15 @@ app.use("/assignment", AssignmentRoutes)
 const NotificationRoutes = require("./routes/notificationRoutes")
 app.use("/notification", NotificationRoutes)
 
-// âœ… ADD THIS - Attendance routes
 const AttendanceRoutes = require("./routes/attendanceRoutes")
 app.use("/attendance", AttendanceRoutes)
+
+const MessageRoutes = require("./routes/messageRoutes")
+app.use("/message", MessageRoutes)
+
+// âœ… User routes
+const UserRoutes = require("./routes/userRoutes")
+app.use("/user", UserRoutes)
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -44,7 +50,3 @@ const PORT = process.env.PORT || 3004
 app.listen(PORT, () => {
   console.log(`íº€ Server running on port ${PORT}`)
 })
-
-// Message routes
-const MessageRoutes = require("./routes/messageRoutes");
-app.use("/message", MessageRoutes);
