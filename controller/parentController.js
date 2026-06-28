@@ -1,4 +1,4 @@
-const { Parent, User, Student } = require('../model/models');
+const { Parent, User, Student, Assignment } = require('../model/models');
 const bcrypt = require('bcrypt');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
@@ -26,6 +26,11 @@ exports.addparent = async (req, res) => {
   try {
     const { name, email, phone, nationalId, address, occupation } = req.body;
     
+    // Validate required fields
+    if (!name || !email || !phone || !nationalId) {
+      return res.status(400).json({ msg: "Name, email, phone and nationalId are required" });
+    }
+    
     // Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -41,7 +46,7 @@ exports.addparent = async (req, res) => {
     // Handle photo upload
     let photo = null;
     if (req.file) {
-      photo = req.file.path; // Cloudinary URL
+      photo = req.file.path;
     }
 
     // Create parent
@@ -74,7 +79,8 @@ exports.addparent = async (req, res) => {
       message: "Parent added, account created successfully. Default password: parent1234" 
     });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error('Add parent error:', error);
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -85,7 +91,8 @@ exports.getallparents = async (req, res) => {
       .populate('students', 'name admissionNumber classroom');
     res.status(200).json(parents);
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error('Get parents error:', error);
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -106,7 +113,8 @@ exports.getParentById = async (req, res) => {
     }
     res.status(200).json(parent);
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error('Get parent by ID error:', error);
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -115,9 +123,8 @@ exports.updateParent = async (req, res) => {
   try {
     const updateData = req.body;
     
-    // Handle photo upload
     if (req.file) {
-      updateData.photo = req.file.path; // Cloudinary URL
+      updateData.photo = req.file.path;
     }
 
     const updatedParent = await Parent.findByIdAndUpdate(
@@ -130,7 +137,6 @@ exports.updateParent = async (req, res) => {
       return res.status(404).json({ message: "Parent not found" });
     }
     
-    // Update user photo if changed
     if (updateData.photo) {
       await User.findOneAndUpdate(
         { parent: req.params.id },
@@ -143,7 +149,8 @@ exports.updateParent = async (req, res) => {
       parent: updatedParent 
     });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error('Update parent error:', error);
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -164,7 +171,8 @@ exports.deleteParent = async (req, res) => {
     
     res.status(200).json({ message: "Parent deleted successfully" });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error('Delete parent error:', error);
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -178,7 +186,8 @@ exports.getParentStudents = async (req, res) => {
     
     res.status(200).json(students);
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    console.error('Get parent students error:', error);
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -213,6 +222,7 @@ exports.getParentDashboard = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Get parent dashboard error:', error);
     res.status(500).json({ message: error.message });
   }
 };
