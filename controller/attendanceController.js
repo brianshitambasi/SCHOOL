@@ -1,21 +1,48 @@
-const { Attendance, Student, Classroom, Teacher } = require("../model/models");
+const { Attendance, Student, Classroom, User } = require("../model/models");
 
 // Mark attendance for multiple students
 exports.markAttendance = async (req, res) => {
   try {
     const { classroomId, date, attendance: attendanceData, note } = req.body;
-    const teacherId = req.user.userId;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
 
-    // Verify teacher is assigned to this classroom
+    console.log('Marking attendance - User ID:', userId);
+    console.log('User Role:', userRole);
+    console.log('Classroom ID:', classroomId);
+
+    // Verify user is a teacher or admin
+    if (userRole !== 'teacher' && userRole !== 'admin') {
+      return res.status(403).json({ message: "Only teachers and admins can mark attendance" });
+    }
+
+    // Verify classroom exists
     const classroom = await Classroom.findById(classroomId);
     if (!classroom) {
       return res.status(404).json({ message: "Classroom not found" });
     }
 
-    // Check if teacher is assigned to this class
-    const teacher = await Teacher.findOne({ _id: teacherId });
-    if (!teacher) {
-      return res.status(403).json({ message: "Only teachers can mark attendance" });
+    console.log('Classroom found:', classroom.name);
+    console.log('Classroom teacher:', classroom.teacher);
+
+    // If user is a teacher, verify they are assigned to this classroom
+    if (userRole === 'teacher') {
+      // Get the teacher ID from the user
+      const user = await User.findById(userId).populate('teacher');
+      if (!user || !user.teacher) {
+        return res.status(403).json({ message: "Teacher profile not found" });
+      }
+      
+      console.log('User teacher ID:', user.teacher._id);
+      
+      // Check if the teacher is assigned to this classroom
+      if (classroom.teacher && classroom.teacher.toString() !== user.teacher._id.toString()) {
+        console.log('Teacher mismatch - Classroom teacher:', classroom.teacher);
+        console.log('User teacher:', user.teacher._id);
+        return res.status(403).json({ 
+          message: "You are not assigned to this classroom" 
+        });
+      }
     }
 
     // Process attendance for each student
@@ -24,17 +51,23 @@ exports.markAttendance = async (req, res) => {
       const { studentId, status, note: studentNote } = item;
       
       // Check if attendance already exists for this student on this date
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+
       const existingAttendance = await Attendance.findOne({
         student: studentId,
         classroom: classroomId,
-        date: new Date(date).setHours(0, 0, 0, 0)
+        date: { $gte: startOfDay, $lte: endOfDay }
       });
 
       if (existingAttendance) {
         // Update existing attendance
         existingAttendance.status = status;
         existingAttendance.note = studentNote || note;
-        existingAttendance.markedBy = teacherId;
+        existingAttendance.markedBy = userId;
         await existingAttendance.save();
         attendanceRecords.push(existingAttendance);
       } else {
@@ -44,7 +77,7 @@ exports.markAttendance = async (req, res) => {
           classroom: classroomId,
           date: new Date(date),
           status,
-          markedBy: teacherId,
+          markedBy: userId,
           note: studentNote || note
         });
         await newAttendance.save();
@@ -57,6 +90,7 @@ exports.markAttendance = async (req, res) => {
       attendance: attendanceRecords
     });
   } catch (error) {
+    console.error('Mark attendance error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -66,6 +100,32 @@ exports.getClassroomAttendance = async (req, res) => {
   try {
     const { classroomId } = req.params;
     const { date } = req.query;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
+
+    console.log('Get classroom attendance - User ID:', userId);
+    console.log('User Role:', userRole);
+    console.log('Classroom ID:', classroomId);
+
+    // Verify classroom exists
+    const classroom = await Classroom.findById(classroomId);
+    if (!classroom) {
+      return res.status(404).json({ message: "Classroom not found" });
+    }
+
+    // If user is a teacher, verify they are assigned to this classroom
+    if (userRole === 'teacher') {
+      const user = await User.findById(userId).populate('teacher');
+      if (!user || !user.teacher) {
+        return res.status(403).json({ message: "Teacher profile not found" });
+      }
+      
+      if (classroom.teacher && classroom.teacher.toString() !== user.teacher._id.toString()) {
+        return res.status(403).json({ 
+          message: "You are not assigned to this classroom" 
+        });
+      }
+    }
     
     const queryDate = date ? new Date(date) : new Date();
     queryDate.setHours(0, 0, 0, 0);
@@ -79,7 +139,7 @@ exports.getClassroomAttendance = async (req, res) => {
     }).populate('student', 'name admissionNumber photo');
 
     // Get all students in the classroom
-    const classroom = await Classroom.findById(classroomId).populate('students', 'name admissionNumber photo');
+    const classroomWithStudents = await Classroom.findById(classroomId).populate('students', 'name admissionNumber photo');
     
     // Create a map of attendance statuses
     const attendanceMap = {};
@@ -88,7 +148,7 @@ exports.getClassroomAttendance = async (req, res) => {
     });
 
     // Build complete list with status
-    const studentsWithAttendance = classroom.students.map(student => ({
+    const studentsWithAttendance = classroomWithStudents.students.map(student => ({
       student,
       status: attendanceMap[student._id] || 'not marked'
     }));
@@ -106,6 +166,7 @@ exports.getClassroomAttendance = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Get classroom attendance error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -137,6 +198,7 @@ exports.getStudentAttendance = async (req, res) => {
 
     res.status(200).json({ attendance, summary });
   } catch (error) {
+    console.error('Get student attendance error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -186,6 +248,7 @@ exports.getClassroomAttendanceSummary = async (req, res) => {
       summary
     });
   } catch (error) {
+    console.error('Get classroom attendance summary error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -195,22 +258,47 @@ exports.updateAttendance = async (req, res) => {
   try {
     const { attendanceId } = req.params;
     const { status, note } = req.body;
+    const userId = req.user.userId;
+    const userRole = req.user.role;
 
-    const attendance = await Attendance.findByIdAndUpdate(
-      attendanceId,
-      { status, note },
-      { new: true }
-    ).populate('student', 'name admissionNumber');
-
+    const attendance = await Attendance.findById(attendanceId);
     if (!attendance) {
       return res.status(404).json({ message: "Attendance record not found" });
     }
 
+    // Only teachers and admins can update
+    if (userRole !== 'teacher' && userRole !== 'admin') {
+      return res.status(403).json({ message: "Only teachers and admins can update attendance" });
+    }
+
+    // If teacher, verify they are assigned to the classroom
+    if (userRole === 'teacher') {
+      const user = await User.findById(userId).populate('teacher');
+      if (!user || !user.teacher) {
+        return res.status(403).json({ message: "Teacher profile not found" });
+      }
+      
+      const classroom = await Classroom.findById(attendance.classroom);
+      if (classroom && classroom.teacher && classroom.teacher.toString() !== user.teacher._id.toString()) {
+        return res.status(403).json({ 
+          message: "You are not assigned to this classroom" 
+        });
+      }
+    }
+
+    attendance.status = status || attendance.status;
+    attendance.note = note || attendance.note;
+    await attendance.save();
+
+    const updatedAttendance = await Attendance.findById(attendanceId)
+      .populate('student', 'name admissionNumber');
+
     res.status(200).json({
       message: "Attendance updated successfully",
-      attendance
+      attendance: updatedAttendance
     });
   } catch (error) {
+    console.error('Update attendance error:', error);
     res.status(500).json({ message: error.message });
   }
 };
