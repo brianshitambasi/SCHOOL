@@ -1,30 +1,12 @@
 const { Parent, User, Student, Assignment } = require('../model/models');
 const bcrypt = require('bcrypt');
-const cloudinary = require('cloudinary').v2;
-const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// Configure Cloudinary for parent photos
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'parents',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-    transformation: [{ width: 400, height: 400, crop: 'limit' }]
-  }
-});
-
-const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }
-});
-
-exports.uploadParentPhoto = upload.single('photo');
-
-// Add parent with photo
+// Add parent
 exports.addparent = async (req, res) => {
   try {
-    const { name, email, phone, nationalId, address, occupation } = req.body;
+    const { name, email, phone, nationalId, address } = req.body;
+    
+    console.log('Adding parent with data:', { name, email, phone, nationalId, address });
     
     // Validate required fields
     if (!name || !email || !phone || !nationalId) {
@@ -43,21 +25,13 @@ exports.addparent = async (req, res) => {
       return res.status(400).json({ msg: "National ID already exists" });
     }
 
-    // Handle photo upload
-    let photo = null;
-    if (req.file) {
-      photo = req.file.path;
-    }
-
     // Create parent
     const newParent = new Parent({
       name,
       email,
       phone,
       nationalId,
-      address,
-      photo,
-      occupation
+      address
     });
     const savedParent = await newParent.save();
     
@@ -69,14 +43,13 @@ exports.addparent = async (req, res) => {
       email,
       password: hashedPassword,
       role: "parent",
-      photo,
       parent: savedParent._id
     });
     await newUser.save();
     
     res.status(201).json({ 
       parent: savedParent, 
-      message: "Parent added, account created successfully. Default password: parent1234" 
+      message: "Parent added successfully. Default password: parent1234" 
     });
   } catch (error) {
     console.error('Add parent error:', error);
@@ -84,33 +57,28 @@ exports.addparent = async (req, res) => {
   }
 };
 
-// Get all parents
+// Get all parents - Admin only
 exports.getallparents = async (req, res) => {
   try {
-    const parents = await Parent.find()
-      .populate('students', 'name admissionNumber classroom');
+    console.log('Fetching all parents...');
+    const parents = await Parent.find();
+    console.log('Parents found:', parents.length);
     res.status(200).json(parents);
   } catch (error) {
     console.error('Get parents error:', error);
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message, stack: error.stack });
   }
 };
 
 // Get parent by ID
 exports.getParentById = async (req, res) => {
   try {
-    const parent = await Parent.findById(req.params.id)
-      .populate({
-        path: 'students',
-        populate: {
-          path: 'classroom',
-          select: 'name gradeLevel'
-        }
-      });
+    const parent = await Parent.findById(req.params.id);
     
     if (!parent) {
       return res.status(404).json({ message: "Parent not found" });
     }
+    
     res.status(200).json(parent);
   } catch (error) {
     console.error('Get parent by ID error:', error);
@@ -118,30 +86,17 @@ exports.getParentById = async (req, res) => {
   }
 };
 
-// Update parent with photo
+// Update parent
 exports.updateParent = async (req, res) => {
   try {
-    const updateData = req.body;
-    
-    if (req.file) {
-      updateData.photo = req.file.path;
-    }
-
     const updatedParent = await Parent.findByIdAndUpdate(
       req.params.id,
-      updateData,
+      req.body,
       { new: true }
     );
     
     if (!updatedParent) {
       return res.status(404).json({ message: "Parent not found" });
-    }
-    
-    if (updateData.photo) {
-      await User.findOneAndUpdate(
-        { parent: req.params.id },
-        { photo: updateData.photo }
-      );
     }
     
     res.status(200).json({ 
@@ -176,53 +131,134 @@ exports.deleteParent = async (req, res) => {
   }
 };
 
-// Get students by parent ID
-exports.getParentStudents = async (req, res) => {
-  try {
-    const parentId = req.params.id;
-    const students = await Student.find({ parent: parentId })
-      .populate('classroom', 'name gradeLevel classYear')
-      .populate('parent', 'name email phone');
-    
-    res.status(200).json(students);
-  } catch (error) {
-    console.error('Get parent students error:', error);
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-// Get parent dashboard
+// ============================================
+// PARENT DASHBOARD - Only sees their own children
+// ============================================
 exports.getParentDashboard = async (req, res) => {
   try {
     const userId = req.user.userId;
+    
+    // Get the parent profile
     const user = await User.findById(userId).populate('parent');
     if (!user || !user.parent) {
       return res.status(404).json({ message: "Parent profile not found" });
     }
 
-    const students = await Student.find({ parent: user.parent._id })
+    // Get ONLY this parent's children (students linked to this parent)
+    const children = await Student.find({ parent: user.parent._id })
       .populate('classroom', 'name gradeLevel classYear')
       .populate('parent', 'name email phone');
 
-    const classrooms = students.map(s => s.classroom?._id).filter(Boolean);
-    const assignments = await Assignment.find({ 
-      classroom: { $in: classrooms } 
-    })
-    .populate('classroom', 'name')
-    .populate('postedBy', 'name');
+    // Get assignments for ONLY this parent's children's classes
+    const classroomIds = children.map(s => s.classroom?._id).filter(Boolean);
+    let assignments = [];
+    if (classroomIds.length > 0) {
+      assignments = await Assignment.find({ 
+        classroom: { $in: classroomIds } 
+      })
+      .populate('classroom', 'name')
+      .populate('postedBy', 'name');
+    }
 
     res.status(200).json({
       parent: user.parent,
-      students,
-      assignments,
+      children: children,
+      assignments: assignments,
       stats: {
-        totalChildren: students.length,
+        totalChildren: children.length,
         totalAssignments: assignments.length,
         pendingAssignments: assignments.filter(a => a.dueDate > new Date()).length
       }
     });
   } catch (error) {
     console.error('Get parent dashboard error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get parent's children only
+exports.getParentChildren = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Get the parent profile
+    const user = await User.findById(userId).populate('parent');
+    if (!user || !user.parent) {
+      return res.status(404).json({ message: "Parent profile not found" });
+    }
+
+    // Get ONLY this parent's children
+    const children = await Student.find({ parent: user.parent._id })
+      .populate('classroom', 'name gradeLevel classYear')
+      .populate('parent', 'name email phone');
+
+    res.status(200).json(children);
+  } catch (error) {
+    console.error('Get parent children error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get a specific child's details
+exports.getChildDetails = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const childId = req.params.id;
+    
+    // Get the parent profile
+    const user = await User.findById(userId).populate('parent');
+    if (!user || !user.parent) {
+      return res.status(404).json({ message: "Parent profile not found" });
+    }
+
+    // Verify this child belongs to this parent
+    const child = await Student.findOne({ 
+      _id: childId,
+      parent: user.parent._id 
+    })
+    .populate('classroom', 'name gradeLevel classYear')
+    .populate('parent', 'name email phone');
+
+    if (!child) {
+      return res.status(404).json({ 
+        message: "Child not found or does not belong to this parent" 
+      });
+    }
+
+    res.status(200).json(child);
+  } catch (error) {
+    console.error('Get child details error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get assignments for parent's children
+exports.getParentAssignments = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Get the parent profile
+    const user = await User.findById(userId).populate('parent');
+    if (!user || !user.parent) {
+      return res.status(404).json({ message: "Parent profile not found" });
+    }
+
+    // Get ONLY this parent's children
+    const children = await Student.find({ parent: user.parent._id });
+    const classroomIds = children.map(s => s.classroom?._id).filter(Boolean);
+
+    let assignments = [];
+    if (classroomIds.length > 0) {
+      assignments = await Assignment.find({ 
+        classroom: { $in: classroomIds } 
+      })
+      .populate('classroom', 'name')
+      .populate('postedBy', 'name');
+    }
+
+    res.status(200).json(assignments);
+  } catch (error) {
+    console.error('Get parent assignments error:', error);
     res.status(500).json({ message: error.message });
   }
 };
