@@ -3,10 +3,12 @@ const router = express.Router();
 const parentController = require("../controller/parentController");
 const { auth, authorizeRoles } = require("../middleware/auth");
 
-// Make sure these routes are properly defined
-router.post("/", auth, authorizeRoles("admin"), parentController.addparent);
+router.post("/", auth, authorizeRoles("admin"), parentController.uploadParentPhoto, parentController.addparent);
 router.get("/", parentController.getallparents);
-router.put("/:id", auth, authorizeRoles("admin"), parentController.updateParent);
+router.get("/dashboard", auth, authorizeRoles("parent"), parentController.getParentDashboard);
+router.get("/:id", auth, authorizeRoles("admin"), parentController.getParentById);
+router.get("/:id/students", auth, parentController.getParentStudents);
+router.put("/:id", auth, authorizeRoles("admin"), parentController.uploadParentPhoto, parentController.updateParent);
 router.delete("/:id", auth, authorizeRoles("admin"), parentController.deleteParent);
 
 module.exports = router;

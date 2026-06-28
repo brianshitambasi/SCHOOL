@@ -1,29 +1,68 @@
 const { Teacher, User, Classroom } = require("../model/models");
 const bcrypt = require("bcrypt");
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// Add teacher
+// Configure Cloudinary for teacher photos
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'teachers',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    transformation: [{ width: 400, height: 400, crop: 'limit' }]
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
+
+exports.uploadTeacherPhoto = upload.single('photo');
+
+// Add teacher with photo
 exports.addTeacher = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, name, phone, subject, bio, qualifications } = req.body;
+    
+    // Check if teacher exists
     const existEmail = await Teacher.findOne({ email });
     if (existEmail) {
       return res.status(400).json({ message: "Email already exists" });
     }
-    
-    const newTeacher = new Teacher(req.body);
+
+    // Handle photo upload
+    let photo = null;
+    if (req.file) {
+      photo = req.file.path; // Cloudinary URL
+    }
+
+    // Create teacher
+    const newTeacher = new Teacher({
+      name,
+      email,
+      phone,
+      subject,
+      photo,
+      bio,
+      qualifications
+    });
     await newTeacher.save();
 
+    // Create user account
     const defaultPassword = "teacher1234";
-    const password = await bcrypt.hash(defaultPassword, 10);
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
     const newUser = new User({
-      name: newTeacher.name,
-      email: newTeacher.email,
-      password,
+      name,
+      email,
+      password: hashedPassword,
       role: "teacher",
+      photo,
       teacher: newTeacher._id,
     });
     await newUser.save();
-    
+
     res.status(201).json({
       message: "Teacher registered successfully",
       teacher: newTeacher,
@@ -57,13 +96,18 @@ exports.getTeacherById = async (req, res) => {
   }
 };
 
-// Update teacher
+// Update teacher with photo
 exports.updateTeacher = async (req, res) => {
   try {
     const teachersId = req.params.id;
     const updateData = req.body;
     const userId = req.user.userId;
     
+    // Handle photo upload
+    if (req.file) {
+      updateData.photo = req.file.path; // Cloudinary URL
+    }
+
     const existUser = await User.findById(userId);
     if (!existUser) {
       return res.status(404).json({ message: "User not found" });
@@ -73,28 +117,33 @@ exports.updateTeacher = async (req, res) => {
     if (!existTeacher) {
       return res.status(404).json({ message: "Teacher not found" });
     }
-    
-    if (updateData.password && req.user.role == "admin") {
+
+    if (updateData.password && req.user.role === "admin") {
       return res.status(403).json({
         message: "Permission denied...does not have rights to update",
       });
     }
-    
-    if (req.user.role == "teacher" && existUser.teacher !== teachersId) {
+
+    if (req.user.role === "teacher" && existUser.teacher !== teachersId) {
       return res.status(403).json({ message: "Request not allowed" });
     }
-    
+
     if (updateData.password) {
       const hashpassword = await bcrypt.hash(updateData.password, 10);
-      updateData.password = hashpassword; // ✅ Fixed typo
+      updateData.password = hashpassword;
     }
-    
-    const user = await User.findOne({ teacher: teachersId });
-    if (user) {
-      await User.findByIdAndUpdate(user._id, updateData, { new: true });
-    }
-    
+
+    // Update teacher
     const savedTeacher = await Teacher.findByIdAndUpdate(teachersId, updateData, { new: true });
+    
+    // Update user photo
+    if (updateData.photo) {
+      await User.findOneAndUpdate(
+        { teacher: teachersId },
+        { photo: updateData.photo }
+      );
+    }
+
     res.json({ message: "Teacher updated", teacher: savedTeacher });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -106,16 +155,13 @@ exports.deleteTeacher = async (req, res) => {
   try {
     const teacherId = req.params.id;
 
-    // Delete teacher
     const deletedTeacher = await Teacher.findByIdAndDelete(teacherId);
     if (!deletedTeacher) {
       return res.status(404).json({ message: 'Teacher not found' });
     }
     
-    // Delete associated user
     await User.findOneAndDelete({ teacher: teacherId });
     
-    // Remove teacher from any classroom
     await Classroom.updateMany(
       { teacher: teacherId },
       { $set: { teacher: null } }
@@ -130,7 +176,7 @@ exports.deleteTeacher = async (req, res) => {
 // Get all teachers classes
 exports.getMyClasses = async (req, res) => {
   try {
-    const userId = req.user.userId; // ✅ Fixed - use logged in user
+    const userId = req.user.userId;
     const user = await User.findById(userId).populate("teacher");
     
     if (!user.teacher) {

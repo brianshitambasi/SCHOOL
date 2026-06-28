@@ -1,36 +1,41 @@
-// require mongoose
 const mongoose = require("mongoose")
 const Schema = mongoose.Schema
 
-// define the user schema
+// User Schema - Add photo field
 const userSchema = new mongoose.Schema({
   name: { type: String },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   isActive: { type: Boolean, default: true },
   role: { type: String, enum: ['admin', 'teacher', 'parent'], required: true },
+  photo: { type: String, default: null }, // ✅ Added photo field
   teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', default: null },
   parent: { type: mongoose.Schema.Types.ObjectId, ref: 'Parent', default: null },
 }, { timestamps: true })
 
-// teachers schema 
+// Teacher Schema - Add photo field
 const teacherSchema = new Schema({
   name: { type: String, required: true },
   email: { type: String },
   phone: { type: String },
   subject: { type: String },
+  photo: { type: String, default: null }, // ✅ Added photo field
+  bio: { type: String }, // ✅ Added bio field
+  qualifications: { type: String }, // ✅ Added qualifications
 }, { timestamps: true })
 
-// parents schema
+// Parent Schema - Add photo field
 const parentSchema = new Schema({
   name: { type: String, required: true },
   email: { type: String },
   phone: { type: String, required: true },
   nationalId: { type: String, required: true, unique: true },
   address: { type: String },
+  photo: { type: String, default: null }, // ✅ Added photo field
+  occupation: { type: String }, // ✅ Added occupation
 }, { timestamps: true })
 
-// THE CLASSROOM - students should be an ARRAY
+// Classroom Schema
 const classroomSchema = new Schema({
   name: { type: String, required: true },
   gradeLevel: { type: String },
@@ -39,18 +44,18 @@ const classroomSchema = new Schema({
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student" }]
 }, { timestamps: true })
 
-// student Schema - FIXED typos
+// Student Schema
 const studentSchema = new Schema({
   name: { type: String, required: true },
   dateOfBirth: { type: Date, required: true },
   gender: { type: String },
-  photo: { type: String },
+  photo: { type: String, default: null },
   admissionNumber: { type: String, unique: true },
   classroom: { type: mongoose.Schema.Types.ObjectId, ref: "Classroom" },
   parent: { type: mongoose.Schema.Types.ObjectId, ref: "Parent" }
 }, { timestamps: true })
 
-// ✅ FIXED: AssignmentSchema is properly defined
+// Assignment Schema
 const AssignmentSchema = new Schema({
   title: { type: String, required: true },
   description: { type: String },
@@ -58,16 +63,6 @@ const AssignmentSchema = new Schema({
   classroom: { type: mongoose.Schema.Types.ObjectId, ref: "Classroom" },
   postedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher" }
 }, { timestamps: true })
-
-// prepare exports
-const User = mongoose.model("User", userSchema);
-const Teacher = mongoose.model("Teacher", teacherSchema);
-const Classroom = mongoose.model("Classroom", classroomSchema);
-const Parent = mongoose.model("Parent", parentSchema);
-const Student = mongoose.model("Student", studentSchema);
-const Assignment = mongoose.model("Assignment", AssignmentSchema);
-
-module.exports = { User, Teacher, Classroom, Parent, Student, Assignment };
 
 // Notification Schema
 const notificationSchema = new Schema({
@@ -88,38 +83,8 @@ const notificationSchema = new Schema({
   link: { type: String },
   priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
   expiresAt: { type: Date },
-  isGlobal: { type: Boolean, default: false },
-  isRead: { type: Boolean, default: false }
+  isGlobal: { type: Boolean, default: false }
 }, { timestamps: true })
-
-// prepare exports - Add Notification
-const Notification = mongoose.model("Notification", notificationSchema);
-
-// Update module exports
-module.exports = { User, Teacher, Classroom, Parent, Student, Assignment, Notification };
-
-// Attendance Schema
-const attendanceSchema = new Schema({
-  student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
-  classroom: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom', required: true },
-  date: { type: Date, required: true, default: Date.now },
-  status: { 
-    type: String, 
-    enum: ['present', 'absent', 'late', 'excused'],
-    required: true,
-    default: 'present'
-  },
-  markedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
-  note: { type: String },
-  semester: { type: String },
-  term: { type: Number, enum: [1, 2, 3] }
-}, { timestamps: true })
-
-// prepare exports - Add Attendance
-const Attendance = mongoose.model("Attendance", attendanceSchema);
-
-// Update module exports
-module.exports = { User, Teacher, Classroom, Parent, Student, Assignment, Notification, Attendance };
 
 // Message Schema
 const messageSchema = new Schema({
@@ -138,12 +103,35 @@ const messageSchema = new Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     readAt: { type: Date, default: Date.now }
   }],
-  priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
-  isRead: { type: Boolean, default: false }
+  priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' }
 }, { timestamps: true })
 
-// prepare exports - Add Message
-const Message = mongoose.model("Message", messageSchema);
+// Attendance Schema
+const attendanceSchema = new Schema({
+  student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
+  classroom: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom', required: true },
+  date: { type: Date, required: true, default: Date.now },
+  status: { 
+    type: String, 
+    enum: ['present', 'absent', 'late', 'excused'],
+    required: true,
+    default: 'present'
+  },
+  markedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
+  note: { type: String },
+  semester: { type: String },
+  term: { type: Number, enum: [1, 2, 3] }
+}, { timestamps: true })
 
-// Update module exports
-module.exports = { User, Teacher, Classroom, Parent, Student, Assignment, Notification, Attendance, Message };
+// Prepare exports
+const User = mongoose.model("User", userSchema);
+const Teacher = mongoose.model("Teacher", teacherSchema);
+const Classroom = mongoose.model("Classroom", classroomSchema);
+const Parent = mongoose.model("Parent", parentSchema);
+const Student = mongoose.model("Student", studentSchema);
+const Assignment = mongoose.model("Assignment", AssignmentSchema);
+const Notification = mongoose.model("Notification", notificationSchema);
+const Message = mongoose.model("Message", messageSchema);
+const Attendance = mongoose.model("Attendance", attendanceSchema);
+
+module.exports = { User, Teacher, Classroom, Parent, Student, Assignment, Notification, Message, Attendance };
