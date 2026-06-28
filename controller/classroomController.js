@@ -17,7 +17,7 @@ exports.addClassroom = async (req, res) => {
 exports.getClassroom = async (req, res) => {
   try {
     const classrooms = await Classroom.find()
-      .populate('teacher', 'name email phone')
+      .populate('teacher', 'name email phone subject')
       .populate('students', 'name admissionNumber');
     res.status(200).json(classrooms);
   } catch (error) {
@@ -31,7 +31,7 @@ exports.getClassroomById = async (req, res) => {
   try {
     const classroomId = req.params.id;
     const classroom = await Classroom.findById(classroomId)
-      .populate('teacher', 'name email phone')
+      .populate('teacher', 'name email phone subject')
       .populate('students', 'name admissionNumber');
     if (!classroom) {
       return res.status(404).json({ message: 'Classroom not found' });
@@ -47,10 +47,23 @@ exports.getClassroomById = async (req, res) => {
 exports.updateClassroom = async (req, res) => {
   try {
     const classroomId = req.params.id;
-    const newClassroom = req.body;
-    const updatedClassroom = await Classroom.findByIdAndUpdate(classroomId, newClassroom, { new: true })
-      .populate('teacher', 'name email phone')
-      .populate('students', 'name admissionNumber');
+    const updateData = req.body;
+
+    // If teacher is being assigned, verify teacher exists
+    if (updateData.teacher) {
+      const teacherExists = await Teacher.findById(updateData.teacher);
+      if (!teacherExists) {
+        return res.status(404).json({ message: 'Teacher not found' });
+      }
+    }
+
+    const updatedClassroom = await Classroom.findByIdAndUpdate(
+      classroomId, 
+      updateData, 
+      { new: true }
+    ).populate('teacher', 'name email phone subject')
+     .populate('students', 'name admissionNumber');
+
     if (!updatedClassroom) {
       return res.status(404).json({ message: 'Classroom not found' });
     }
@@ -89,8 +102,11 @@ exports.addStudentToClassroom = async (req, res) => {
       return res.status(404).json({ message: 'Classroom not found' });
     }
     
-    classroom.students.push(studentId);
-    await classroom.save();
+    if (!classroom.students.includes(studentId)) {
+      classroom.students.push(studentId);
+      await classroom.save();
+    }
+    
     res.status(200).json(classroom);
   } catch (error) {
     console.error('Add student to classroom error:', error);
